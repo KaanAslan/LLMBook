@@ -17,5 +17,6 @@ documentation for details.
    :numbered:
 
    introduction
+   normalization
    
 
