@@ -35,6 +35,10 @@ documentation for details.
    :numbered:
 
    introduction
-
-   
-
+   charactertablesandcharacterencodings
+   classicalnaturallanguageprocessing
+   textnormalization
+   tokenization
+   tokennormalization
+   digitalconversionofthedictionarytreasury
+   classicnaturallanguageprocessing
