@@ -19,7 +19,7 @@
 
 .. rubric:: Ön Gereksinimler
 
-Okuyucunun Python programlama diline hâkim olduğu ve kullanabildiği varsayılmaktadır. 
+Okuyucunun Python programlama dilinin detaylarını bildiği ve rahatça kullanabildiği varsayılmaktadır. 
 
 ----
 

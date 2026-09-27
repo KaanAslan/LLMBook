@@ -2663,3 +2663,1890 @@ metoduna vermek gerekir:
     plt.plot(inversed_line_points[:, 0], inversed_line_points[:, 1])
     plt.show()
 
+Metin Sınıflandırmada Lojistik Regresyon
+========================================
+
+LogisticRegression Sınıfının Hyper Parametreleri
+------------------------------------------------
+
+``LogisticRegression`` sınıfının *gradient descent* denilen nümerik minimizasyon yöntemini uyguladığını
+belirtmiştik. Her türlü nümerik yöntemde bir döngü içerisinde hedefe gitgide yaklaşıldığını belirtmiştik. İşte
+genel olarak buradaki iterasyon miktarı bu tür sınıflarda bir hyper parametre olarak belirtilebilmektedir.
+``LogisticRegression`` sınıfının ``__init__`` metodunun parametrik yapısı şöyledir:
+
+.. code-block:: python
+
+    class sklearn.linear_model.LogisticRegression(penalty='deprecated', *, C=1.0, l1_ratio=0.0, dual=False,
+            tol=0.0001, fit_intercept=True, intercept_scaling=1, class_weight=None, random_state=None,
+            solver='lbfgs', max_iter=100, verbose=0, warm_start=False, n_jobs=None)
+
+Buradaki ``max_iter`` parametresine dikkat ediniz. Bu parametrenin default değeri 100'dür. Metinsel işlemlerde
+değişken sayısı çok fazla olabileceği için bu değeri yükseltmek uygun olabilir.
+
+CountVectorizer ile İki Sınıflı Metin Sınıflandırma
+---------------------------------------------------
+
+Lojistik regresyonla metinleri duygu analizinde olduğu gibi iki sınıfa ayırmak oldukça kolaydır. Bunun için yine
+önişlem aşamalarından geçilir. Gövdeleme ya da sözlüksel biçime dönüştürme işlemlerinin yapılması
+önerilmektedir. Bundan sonra yine yazılar sözcük çantası (BoW) ya da TF-IDF vektörleri biçimine dönüştürülür ve
+lojistik regresyon uygulanır. Metinlerdeki sözcükler (atomlar) değişkenler gibi, onların sıklıkları ya da TF-IDF
+değerleri de değişkenlerin değerleri gibi kullanılarak eğitim yapılır. Eğitim sonucunda çok fazla değişkeni
+içeren bir regresyon hiper düzlemi elde edilecektir. Örneğin sözcük hazinemiz 10000 atomdan oluşuyor olsun. Bu
+10000 sözcüğe x1, x2, x3, ..., x10000 isimlerini vermiş olalım. Lojistik regresyon sonucunda elde edilen doğru
+denklemi şöyle olacaktır:
+
+::
+
+    w1x1 + w2x2 + w3x3 + ... + w10000x10000 + b
+
+Yani eğitim sonucunda 10000 tane w katsayısı ve bir tane de bias değeri elde edilecektir. Bundan sonra yine
+kestirim yukarıdaki örnekte olduğu gibi yapılacaktır.
+
+Şimdi bu işlemleri uygulayalım. Bizim daha önce kullandığımız `turkish_movie_sentiment_labeled.csv` dosyası
+*pozitif*, *negatif* ve *nötr* olmak üzere üç etiket (sınıf) içeriyordu. Lojistik regresyon iki sınıflı bir
+model olduğu için bizim buradaki *nötr* satırlarını atmamız gerekir:
+
+.. code-block:: python
+
+    df = pd.read_csv('../Data/turkish_movie_sentiment_labeled.csv')
+    df_reduced = df[:][(df['label'] == 'pozitif') | (df['label'] == 'negatif')]
+
+    dataset_x = df_reduced['comment'].to_numpy()
+    dataset_y = df_reduced['label'].to_numpy()
+
+Yine veri kümesini eğitim ve test olmak üzere iki kısma ayırabiliriz:
+
+.. code-block:: python
+
+    training_dataset_x, test_dataset_x, training_dataset_y, test_dataset_y = \
+            train_test_split(dataset_x, dataset_y, test_size=0.2)
+
+Artık ``CountVectorizer`` işlemini yapabiliriz:
+
+.. code-block:: python
+
+    def turkish_lowercase(text):
+        return text.replace('İ', 'i').replace('I', 'ı').lower()
+
+    cv = CountVectorizer(preprocessor=turkish_lowercase, lowercase=False)
+    cv.fit(training_dataset_x)
+    training_bow = cv.transform(training_dataset_x)
+
+Lojistik regresyon işlemini şöyle uygulayabiliriz:
+
+.. code-block:: python
+
+    lr = LogisticRegression(max_iter=10000)
+    lr.fit(training_bow, training_dataset_y)
+
+Accuracy değerini de şöyle hesaplayabiliriz:
+
+.. code-block:: python
+
+    test_bow = cv.transform(test_dataset_x)
+    test_results = lr.predict(test_bow)
+
+    accuracy = accuracy_score(test_dataset_y, test_results)
+    print(accuracy)
+
+Buradan elde edilen accuracy değeri %90 civarındadır. Aynı iki sınıflı veri kümesine Naive Bayes uygulandığında
+ise accuracy değeri 89 civarında olmaktadır. İki yöntem arasında 1 ile 1.5 puanlık bir fark gözlemlenmektedir.
+
+Örneği bütünsel olarak aşağıda veriyoruz.
+
+.. code-block:: python
+
+    import pandas as pd
+
+    df = pd.read_csv('../Data/turkish_movie_sentiment_labeled.csv')
+    df_reduced = df[:][(df['label'] == 'pozitif') | (df['label'] == 'negatif')]
+
+    dataset_x = df_reduced['comment'].to_numpy()
+    dataset_y = df_reduced['label'].to_numpy()
+
+    from sklearn.model_selection import train_test_split
+
+    training_dataset_x, test_dataset_x, training_dataset_y, test_dataset_y = train_test_split(
+        dataset_x, dataset_y, test_size=0.2)
+
+    from sklearn.feature_extraction.text import CountVectorizer
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import accuracy_score
+
+    def turkish_lowercase(text):
+        return text.replace('İ', 'i').replace('I', 'ı').lower()
+
+    cv = CountVectorizer(preprocessor=turkish_lowercase, lowercase=False)
+    cv.fit(training_dataset_x)
+    training_bow = cv.transform(training_dataset_x)
+
+    lr = LogisticRegression(max_iter=10000)
+    lr.fit(training_bow, training_dataset_y)
+
+    test_bow = cv.transform(test_dataset_x)
+    test_results = lr.predict(test_bow)
+
+    accuracy = accuracy_score(test_dataset_y, test_results)
+    print(accuracy)
+
+    predict_text = """
+        Filmi izleyince Alfred Hitchcock tarzı gerilim filmleri aklıma geldi. Görsel ve ses anlamında iyi bir gerilim filmi
+        olmuş. Film yavaş bir tempo ile başlayıp gittikçe hızlanıyor. Son yarım saat gayet iyi idi. Saplantı ( Obsession )
+        şuanda vizyonda oynuyor. Korku veya gerilimden çok psikoloji üzerine bir film. Son kısmında artan tempo ve gerilim bazı
+        seyircileri rahatsız edebilir ki bence yönetmen bunu bilerek yapmış. Son dönemlerin en iyi gerilim filmi olmuş. Aklınızda
+        kalacak bir film
+    """
+
+    bow_predict_text = cv.transform([predict_text])
+    predict_result = lr.predict(bow_predict_text)
+    print(predict_result)
+
+TF-IDF Vektörizasyonu ile Aynı Örnek
+------------------------------------
+
+Biz yukarıdaki örnekte yazıları vektörleştirirken frekans oluşturan ``CountVectorizer`` kullandık. Literatüre
+bakıldığında özellikle Türkçe gibi dillerde TF-IDF vektörizasyonunun çok az daha iyi sonuç vereceği
+belirtilmiştir. Gerçekten de yukarıdaki örneği TF-IDF vektörizasyonuyla yaptığımızda %0.3 civarında bir iyileşme
+gözlemlenmiştir. Aslında doküman sınıflandırmada çok az da olsa ``CountVectorizer`` ile binary vektör oluşturmak
+daha iyi sonuç vermektedir. Ancak ne olursa olsun bunlar arasındaki fark azdır.
+
+Aşağıda aynı örneğin TF-IDF vektörizasyonu kullanılan biçimini veriyoruz. Programda yalnızca birkaç yeri
+değiştirdik.
+
+.. code-block:: python
+
+    import pandas as pd
+
+    df = pd.read_csv('../Data/turkish_movie_sentiment_labeled.csv')
+    df_reduced = df[:][(df['label'] == 'pozitif') | (df['label'] == 'negatif')]
+
+    dataset_x = df_reduced['comment'].to_numpy()
+    dataset_y = df_reduced['label'].to_numpy()
+
+    from sklearn.model_selection import train_test_split
+
+    training_dataset_x, test_dataset_x, training_dataset_y, test_dataset_y = train_test_split(
+        dataset_x, dataset_y, test_size=0.2)
+
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import accuracy_score
+
+    def turkish_lowercase(text):
+        return text.replace('İ', 'i').replace('I', 'ı').lower()
+
+    cv = TfidfVectorizer(preprocessor=turkish_lowercase, lowercase=False)
+    cv.fit(training_dataset_x)
+    training_tfidf = cv.transform(training_dataset_x)
+
+    lr = LogisticRegression(max_iter=10000)
+    lr.fit(training_tfidf, training_dataset_y)
+
+    test_tfidf = cv.transform(test_dataset_x)
+    test_results = lr.predict(test_tfidf)
+
+    accuracy = accuracy_score(test_dataset_y, test_results)
+    print(accuracy)
+
+
+    predict_text = """
+        Filmi izleyince Alfred Hitchcock tarzı gerilim filmleri aklıma geldi. Görsel ve ses anlamında iyi bir gerilim filmi
+        olmuş. Film yavaş bir tempo ile başlayıp gittikçe hızlanıyor. Son yarım saat gayet iyi idi. Saplantı ( Obsession )
+        şuanda vizyonda oynuyor. Korku veya gerilimden çok psikoloji üzerine bir film. Son kısmında artan tempo ve gerilim
+        bazı seyircileri rahatsız edebilir ki bence yönetmen bunu bilerek yapmış. Son dönemlerin en iyi gerilim filmi olmuş.
+        Aklınızda kalacak bir film
+    """
+
+    tfidf_predict_text = cv.transform([predict_text])
+    predict_result = lr.predict(tfidf_predict_text)
+    print(predict_result)
+
+Sözlüksel Biçime Dönüştürme (Zemberek) ile Lojistik Regresyon
+-------------------------------------------------------------
+
+Biz yukarıdaki örneklerimizde küçük harfe dönüştürmekten başka bir metin normalizasyonu ve atom normalizasyonu
+uygulamadık. Klasik doğal dil işleme yöntemlerinde *gövdeleme (stemming)* ve *sözlüksel hale getirme
+(lemmatization)* gibi atom normalizasyonları modelin başarısını artırmaktadır. Şimdi biz yukarıdaki lojistik
+regresyon örneğini *sözlüksel biçime dönüştürme* sonrasında uygulayalım. Bunun için Zemberek kullanabiliriz:
+
+.. code-block:: python
+
+    df = pd.read_csv('../Data/turkish_movie_sentiment_labeled.csv')
+    df_reduced = df[:][(df['label'] == 'pozitif') | (df['label'] == 'negatif')]
+
+    # df_reduced = df_reduced.sample(frac=1).iloc[:2000, :]
+
+    morphology = TurkishMorphology.create_with_defaults()
+    extractor = TurkishSentenceExtractor()
+
+    skipped_pos = {'Punc', 'Num', 'Unk'}
+
+    count = 0
+    lemma_text = []
+    for text in  df_reduced['comment']:
+        lemmas = []
+        for sentence in extractor.from_paragraph(text):
+            for result in morphology.analyze_and_disambiguate(sentence).best_analysis():
+                if result.item.primary_pos.value in skipped_pos:
+                    continue
+                lemmas.append(result.item.lemma)
+        lemma_text.append(' '.join(lemmas))
+        print(count)
+        count += 1
+
+    dataset_x = np.array(lemma_text)
+    dataset_y = df_reduced['label'].to_numpy()
+
+Burada biz Zemberek kütüphanesiyle her yazıyı cümlelerine ayırıp sonra sözcüklerin sözlüksel biçimlerini elde
+ettik, onları bir listede toplayarak onlardan yeniden yazı elde ettik. Bu yazıları da bir listede topladık.
+Ayrıca durak sözcüklerini de metinlerden attık:
+
+.. code-block:: python
+
+    df_stop_words = pd.read_csv('../Data/turkish-stopwords.csv')
+    turkish_stop_words = df_stop_words['stopwords']
+
+    cv = CountVectorizer(preprocessor=turkish_lowercase, lowercase=False, token_pattern=r'\S+',
+            stop_words=turkish_stop_words.to_list())
+    cv.fit(training_dataset_x)
+    training_bow = cv.transform(training_dataset_x)
+
+Burada ``CountVectorizer`` nesnesi yaratılırken ``token_pattern`` düzenli ifadesini de değiştirdik. Bu ifade
+default durumda tek harfli sözcükleri atmaktadır. Biz ``\S+`` kalıbıyla bunların atılmasını da engelledik. Tabii
+sözlüksel biçime dönüştürme nispeten yavaş bir işlemdir.
+
+Aşağıda kodu bütünsel olarak veriyoruz.
+
+.. code-block:: python
+
+    import numpy as np
+    import pandas as pd
+
+    df = pd.read_csv('../Data/turkish_movie_sentiment_labeled.csv')
+    df_reduced = df[:][(df['label'] == 'pozitif') | (df['label'] == 'negatif')]
+
+    df_reduced = df_reduced.sample(frac=1).iloc[:2000, :]
+
+    from zemberek import TurkishMorphology, TurkishSentenceExtractor
+
+    morphology = TurkishMorphology.create_with_defaults()
+    extractor = TurkishSentenceExtractor()
+
+    skipped_pos = {'Punc', 'Num', 'Unk'}
+
+    count = 0
+    lemma_text = []
+    for text in  df_reduced['comment']:
+        lemmas = []
+        for sentence in extractor.from_paragraph(text):
+            for result in morphology.analyze_and_disambiguate(sentence).best_analysis():
+                if result.item.primary_pos.value in skipped_pos:
+                    continue
+                lemmas.append(result.item.lemma)
+        lemma_text.append(' '.join(lemmas))
+        print(count)
+        count += 1
+
+    dataset_x = np.array(lemma_text)
+    dataset_y = df_reduced['label'].to_numpy()
+
+    from sklearn.model_selection import train_test_split
+
+    training_dataset_x, test_dataset_x, training_dataset_y, test_dataset_y = train_test_split(
+        dataset_x, dataset_y, test_size=0.2)
+
+    from sklearn.feature_extraction.text import CountVectorizer
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import accuracy_score
+
+    def turkish_lowercase(text):
+        return text.replace('İ', 'i').replace('I', 'ı').lower()
+
+    df_stop_words = pd.read_csv('../Data/turkish-stopwords.csv')
+    turkish_stop_words = df_stop_words['stopwords']
+
+    cv = CountVectorizer(preprocessor=turkish_lowercase, lowercase=False, token_pattern=r'\S+',
+            stop_words=turkish_stop_words.to_list())
+    cv.fit(training_dataset_x)
+    training_bow = cv.transform(training_dataset_x)
+
+    lr = LogisticRegression(max_iter=10000)
+    lr.fit(training_bow, training_dataset_y)
+
+    test_bow = cv.transform(test_dataset_x)
+    test_results = lr.predict(test_bow)
+
+    accuracy = accuracy_score(test_dataset_y, test_results)
+    print(accuracy)
+
+    predict_text = """
+        Filmi izleyince Alfred Hitchcock tarzı gerilim filmleri aklıma geldi. Görsel ve ses anlamında iyi bir gerilim filmi
+        olmuş. Film yavaş bir tempo ile başlayıp gittikçe hızlanıyor. Son yarım saat gayet iyi idi. Saplantı ( Obsession )
+        şuanda vizyonda oynuyor. Korku veya gerilimden çok psikoloji üzerine bir film. Son kısmında artan tempo ve gerilim
+        bazı seyircileri rahatsız edebilir ki bence yönetmen bunu bilerek yapmış. Son dönemlerin en iyi gerilim filmi olmuş.
+        Aklınızda kalacak bir film
+    """
+
+    bow_predict_text = cv.transform([predict_text])
+    predict_result = lr.predict(bow_predict_text)
+    print(predict_result)
+
+Çok Sınıflı Lojistik Regresyon
+------------------------------
+
+Biz yukarıda iki sınıflı (binary) lojistik regresyon üzerinde durduk. Zaten istatistikte lojistik regresyon
+denildiğinde default olarak iki sınıflı lojistik regresyon anlaşılmaktadır. Çok sınıflı (multinomial/multiclass)
+lojistik regresyon problemleri de aslında genel yapı itibarıyla iki sınıflı lojistik regresyon problemlerine
+benzemektedir.
+
+Çok sınıflı lojistik regresyon problemlerinin çözümü için temelde üç farklı yöntem kullanılabilmektedir.
+Bunlardan birine *OvR (One versus Rest)* yöntemi denir. Bu yöntemde her sınıfı diğerlerinden ayırmak için bir
+doğru denklemi elde edilmeye çalışılır. Dolayısıyla K tane sınıf söz konusuysa K tane doğru denklemi elde
+edilecektir. İstatistikte daha çok bu yöntem kullanılmaktadır. Böylece sanki çok sınıflı lojistik regresyon
+birden fazla iki sınıflı lojistik regresyon gibi ele alınmaktadır. Örneğin bu yöntemde C1, C2 ve C3 biçiminde 3
+sınıflı lojistik regresyon probleminde C1'i diğerlerinden ayıran, C2'yi diğerlerinden ayıran ve C3'ü
+diğerlerinden ayıran üç farklı iki sınıflı lojistik regresyon uygulanmaktadır. Dolayısıyla üç farklı doğru
+denklemi elde edilmektedir. Burada kestirim, kestirilecek noktanın üç ayrı iki sınıflı lojistik regresyona
+sokulması ve hangi olasılık değeri yüksekse o sınıfa atanması biçiminde yapılmaktadır. Ancak bu yöntemin bazı
+dezavantajları da vardır.
+
+Çok sınıflı lojistik regresyon problemlerinin çözümü için kullanılan ikinci yönteme *OvO (One versus One)*
+denilmektedir. Burada her sınıf her sınıfla ikili lojistik regresyona sokulur. Kestirim işlemi de oylama
+(voting) yoluyla yapılır. Örneğin elimizde C1, C2, C3, C4 biçiminde dört sınıflı bir veri kümesi olsun. Biz
+burada her sınıfı her sınıfla ikili lojistik regresyona sokarız:
+
+::
+
+    C1 ile C2
+    C1 ile C3
+    C1 ile C4
+    C2 ile C3
+    C2 ile C4
+    C3 ile C4
+
+Kestirim sırasında kestirilecek noktayı buradaki tüm regresyonlara sokup oylama yaparız. Bu yöntemde aşağıdaki
+gibi bir sonucun elde edildiğini varsayalım:
+
+::
+
+    C1 ile C2   => C1
+    C1 ile C3   => C1
+    C1 ile C4   => C1
+    C2 ile C3   => C3
+    C2 ile C4   => C2
+    C3 ile C4   => C4
+
+Burada oylamada C1 en iyi puanı elde ettiği için noktayı C1 sınıfına atarız. Bu yöntemde sınıf sayısı K olmak
+üzere oluşturulacak ikili lojistik regresyon sayısının C(K, 2) olduğuna dikkat ediniz. Örneğin K = 4 olduğu
+durumda C(4, 2) = 6 farklı ikili lojistik regresyon oluşturulacaktır. Peki bu yöntemde aynı oyu alan birden
+fazla sınıf olursa seçim nasıl yapılacaktır? İşte burada seçim birkaç biçimde yapılabilir. Aynı oyu alan
+sınıflardan biri rastgele seçilebilir, aynı oyu alan sınıfların oylamadan elde ettikleri toplam olasılığa
+(sigmoid fonksiyonlarının verdiği olasılıkların toplamına) bakılabilir ya da aynı oyu alan sınıflardan birisine
+öncelik tanınabilir.
+
+Üçüncü yönteme *multinomial* yöntem de denilmektedir. Bu yöntemde sınıf sayısı kadar doğru denklemi ayrı ayrı
+oluşturmak yerine tek hamlede softmax fonksiyonu uygulanarak oluşturulmaktadır. Softmax fonksiyonu şöyledir:
+
+::
+
+                    eᶻⁱ
+    Softmax(zᵢ) = ────────
+                   Σⱼ eᶻʲ
+
+Burada zi doğru denkleminden elde edilen değeri belirtmektedir. Bu değerlerin e tabanına göre kuvvetlerinin
+alındığını görüyorsunuz. Paydadaki toplam da tüm doğru denklemlerinden elde edilen değerlerin üstel toplamlarını
+belirtmektedir. Örneğin üç sınıflı bir lojistik regresyon probleminde üç ayrı doğru denklemi beraber bulunmaya
+çalışılır. Buradaki zi ve zj değerleri x değerlerinin bu doğru denklemlerine sokulmasıyla elde edilen değerleri
+temsil etmektedir. Örneğin biz C1, C2 ve C3 biçiminde üç sınıflı iki özellikli bir lojistik regresyonda doğru
+denklemlerini aşağıdaki gibi temsil etmiş olalım:
+
+::
+
+    z₁ = B₁₀ + B₁₁X₁ + B₁₂X₂
+    z₂ = B₂₀ + B₂₁X₁ + B₂₂X₂
+    z₃ = B₃₀ + B₃₁X₁ + B₃₂X₂
+
+Elimizde bir noktaya ilişkin x değerleri olsun. Biz de yukarıda softmax fonksiyonu ile bu x değerlerinin C1
+sınıfına, C2 sınıfına ve C3 sınıfına ilişkin olma olasılıklarını elde edebiliriz:
+
+::
+
+    x noktasının C₁ olma olasılığı = e^(z₁) / (e^(z₁) + e^(z₂) + e^(z₃))
+    x noktasının C₂ olma olasılığı = e^(z₂) / (e^(z₁) + e^(z₂) + e^(z₃))
+    x noktasının C₃ olma olasılığı = e^(z₃) / (e^(z₁) + e^(z₂) + e^(z₃))
+
+Burada elde edilen bu üç olasılığın toplamının 1 olduğuna dikkat ediniz.
+
+Peki buradaki doğru denklemleri nasıl elde edilmektedir? Anımsayacağınız gibi biz 2 sınıflı lojistik regresyon
+problemlerinde *binary cross-entropy* isimli amaç fonksiyonunu (loss fonksiyonunu) kullandık. Bu da zaten
+*maximum likelihood* amaç fonksiyonunun negatifiydi. Peki örneğin üç sınıflı bir lojistik regresyon probleminde
+biz nasıl bir amaç fonksiyonu kullanmalıyız? İşte yapay sinir ağları konusunda da gördüğümüz gibi buradaki amaç
+fonksiyonuna (loss fonksiyonuna) *categorical cross-entropy* denilmektedir. *categorical cross-entropy*
+fonksiyonu yeniden anımsatmak istiyoruz:
+
+::
+
+    L = -(1/N) * Σ(i=1 → N) Σ(c=1 → C) y(i,c) * log(p(i,c))
+
+Burada p_ic değeri softmax fonksiyonundan elde edilen değerdir. Dolayısıyla aslında bu loss fonksiyonu eşliğinde
+doğru denklemleri güncellenmektedir. Buradaki y_i değerleri ilgili satırın gerçek değerlerini belirtmektedir.
+Ancak bu değer one-hot-encoding biçimindedir. Dolayısıyla buradaki toplamda yalnızca tek bir sınıf için değer
+oluşacaktır. Örneğin üç sınıflı bir lojistik regresyonda bir satırın gerçek sınıfı 2 olsun. Bu durumda y_ic
+aslında 0 1 0 biçimindedir. Dolayısıyla bu toplamdan yalnızca -log(p_i2) elde edilir. Bu da ikinci sınıfa
+ilişkin softmax değerinin logaritmasının negatif değeridir. Burada örneğin üç sınıflı lojistik regresyonda
+eğitim sonucunda üç doğru denkleminin oluşacağına dikkat ediniz. Bu doğru denklemlerinin geometrik yorumlaması
+zor yapılamayabilir. Çünkü buradaki doğru denklemleri sınıfları ayıran bir karakterde değildir.
+
+Aşağıda *pozitif*, *negatif* ve *nötr* olmak üzere üç sınıflı metinlerden oluşan veri kümesi üzerinde lojistik
+regresyon uygulanmıştır.
+
+.. code-block:: python
+
+    import pandas as pd
+
+    df = pd.read_csv('../Data/turkish_movie_sentiment_labeled.csv')
+
+    dataset_x = df['comment'].to_numpy()
+    dataset_y = df['label'].to_numpy()
+
+    from sklearn.model_selection import train_test_split
+
+    training_dataset_x, test_dataset_x, training_dataset_y, test_dataset_y = train_test_split(
+        dataset_x, dataset_y, test_size=0.2)
+
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import accuracy_score
+
+    def turkish_lowercase(text):
+        return text.replace('İ', 'i').replace('I', 'ı').lower()
+
+    cv = TfidfVectorizer(preprocessor=turkish_lowercase, lowercase=False)
+    cv.fit(training_dataset_x)
+    training_tfidf = cv.transform(training_dataset_x)
+
+    lr = LogisticRegression(max_iter=10000)
+    lr.fit(training_tfidf, training_dataset_y)
+
+    test_tfidf = cv.transform(test_dataset_x)
+    test_results = lr.predict(test_tfidf)
+
+    accuracy = accuracy_score(test_dataset_y, test_results)
+    print(accuracy)
+
+    predict_text1 = """
+        Filmi izleyince Alfred Hitchcock tarzı gerilim filmleri aklıma geldi. Görsel ve ses anlamında iyi bir gerilim filmi
+        olmuş. Film yavaş bir tempo ile başlayıp gittikçe hızlanıyor. Son yarım saat gayet iyi idi. Saplantı ( Obsession )
+        şuanda vizyonda oynuyor. Korku veya gerilimden çok psikoloji üzerine bir film. Son kısmında artan tempo ve gerilim
+        bazı seyircileri rahatsız edebilir ki bence yönetmen bunu bilerek yapmış. Son dönemlerin en iyi gerilim filmi olmuş.
+        Aklınızda kalacak bir film
+    """
+
+    predict_text2 = """
+        iyi de değil kötü de değil
+
+    """
+
+    tfidf_predict_text = cv.transform([predict_text1, predict_text2])
+    predict_result = lr.predict(tfidf_predict_text)
+    print(predict_result)
+
+Metin Kümelemesi, Uzaklık Ölçütleri ve K-Means Algoritması
+==========================================================
+
+Metin Kümelemesi ve Denetimsiz Öğrenmeye Giriş
+----------------------------------------------
+
+Şimdi de doğal dil işlemede *metin kümelemesi (text clustering)* üzerinde duralım. Metinlerin kümelenmesi çok
+karşılaşılan klasik doğal dil işleme problemlerinden biridir. Kümeleme yöntemleri makine öğrenmesinin
+*denetimsiz öğrenme (unsupervised learning)* denilen alanının önemli bir konusunu oluşturmaktadır. Kümeleme
+işlemleri aslında istatistikte uzunca bir süredir bilinen bir konudur. İstatistikte bu konu *kümeleme analizi
+(cluster analysis)* başlığı altında ele alınmaktadır. Ancak kümeleme işlemleri en önemli uygulama alanını makine
+öğrenmesinde bulmuştur. Bu bağlamda kümeleme analizi önemli ölçüde varyasyonlarıyla birlikte yüzün üzerinde
+algoritmik yöntem ortaya atılmıştır.
+
+Sınıflandırma ve Kümeleme Arasındaki Fark
+-----------------------------------------
+
+Makine öğrenmesinde *sınıflandırma (classification)* ve *kümeleme (clustering)* farklı anlamlara gelmektedir.
+Sınıflandırma belli bir olgunun önceden belirlenmiş sınıflardan biriyle ilişkilendirilmesi ile ilgilidir.
+Kümeleme ise bu sınıfların bizzat oluşturulması ile ilgilidir. Yani sınıflandırmada sınıflar zaten bellidir.
+Kümelemede ise sınıflar benzerliklerden ve farklılıklardan hareketle oluşturulmaya çalışılmaktadır. Dolayısıyla
+sınıflandırma *denetimli (supervised)* bir yöntem grubunu belirtirken, kümeleme *denetimsiz (unsupervised)* bir
+yöntem grubunu belirtmektedir.
+
+Elimizde hem x ve hem y verileri varken genellikle denetimli öğrenme yöntemlerini tercih ederiz. Ancak bazen
+elimizde yeteri kadar x verileri olduğu halde yeteri kadar y verileri olmayabilir. Örneğin anomali içeren banka
+işlemlerini tespit etmek isteyelim. Elimizde anomali içerdiğini açıkça bildiğimiz fazlaca y verisi olmayabilir.
+Bazen de x ve y verilerinin çeşitliliğinden dolayı denetimli öğrenme yöntemleri uygun yöntemler olmaktan
+çıkabilir. Örneğin bir dosyanın virüslü olup olmadığına yönelik bir model oluşturmak isteyelim. Elimizde virüslü
+dosyalarla virüssüz dosyalar bulunuyor olabilir. Ancak virüs yöntemleri sürekli değişebilmektedir. Bu durumda
+yeni virüsler için yeni veriler oluşmadan biz eğitimi yapamayız. İşte bu tür durumlarda da denetimsiz öğrenme
+yöntemleri tercih edilmektedir.
+
+Benzerlik ve Uzaklık Kavramı
+----------------------------
+
+Kümeleme benzer olanların ya da benzer olmayanların bir araya getirilmesi süreci olduğuna göre benzerlik nasıl
+ölçülmektedir? Yani bir veri kümesinde satırlar varlıkları temsil ediyorsa, iki satırın birbirine benzer olup
+olmadığı nasıl ölçülecektir? Benzerlik insan algısıyla ilgili bir kavramdır. Oysa makine öğrenmesinde benzerlik
+ancak sayısal yöntemlerle somut biçimde ifade edilebilir.
+
+İşte bir veri kümesindeki satırlar n boyutlu uzayda birer nokta gibi düşünülebilir. Benzerlik de *uzaklık
+(distance)* temeline dayandırılabilir. İki nokta arasındaki uzaklığı ölçmek için farklı uzaklık ölçütleri
+kullanılabilmektedir. En yaygın kullanılan uzaklık ölçütü *Öklit uzaklığı (Euclidean distance)* denilen ölçüttür.
+N boyutlu uzayda iki noktayı birleştiren doğru parçasının uzunluğuna *Öklit uzaklığı (Euclidean distance)*
+denilmektedir. Ancak *Hamming uzaklığı (Hamming distance)* gibi, *Manhattan uzaklığı (Manhattan distance)* gibi
+başka uzaklık ölçütleri de vardır. Farklı problemlerde ve veri kümelerinde farklı uzaklık ölçütleri tercih
+edilebilmektedir.
+
+Öklit Uzaklığı
+--------------
+
+İki nokta arasındaki Öklit uzaklığı bu iki noktayı birleştiren doğru parçasının uzunluğudur. Örneğin iki
+özelliğe (sütunlu) sahip ve özelliklerin nümerik olduğu bir veri kümesindeki satırlar kartezyen koordinat
+sisteminde birer nokta belirtmektedir. Bu iki nokta arasındaki Öklit uzaklığı noktalar a ve b olmak üzere
+√[(aₓ - bₓ)² + (aᵧ - bᵧ)²] biçiminde hesaplanmaktadır. N boyutlu uzaydaki iki nokta arasındaki Öklit uzaklığı da
+benzer biçimde her boyutun karşılıklı bileşenlerinin farklarının karelerinin toplamının karekökü ile
+hesaplanır. N boyutlu uzay için Öklit uzaklığı şöyle hesaplanmaktadır:
+
+::
+
+                      N
+    d(a, b) = √( Σ (aᵢ - bᵢ)² )
+                    i=1
+
+NumPy kullanarak N boyutlu uzayda iki nokta arasındaki Öklit uzaklığını hesaplayan bir fonksiyon basit bir
+biçimde şöyle yazılabilir:
+
+.. code-block:: python
+
+    import numpy as np
+
+    def euclidean_distance(a, b):
+        return np.sqrt(np.sum((a - b) ** 2))
+
+    a = np.array([1, 4, 6, 2])
+    b = np.array([4, 2, -1, 7])
+
+    d = euclidean_distance(a, b)
+    print(d)
+
+Öklit uzaklığı hesaplamak için NumPy içerisinde hazır bir fonksiyon yoktur. Ancak bunun için SciPy içerisinde
+``scipy.spatial.distance`` modülünde ``euclidean`` isimli bir fonksiyon bulunmaktadır.
+
+.. code-block:: python
+
+    from scipy.spatial.distance import euclidean
+
+    a = np.array([1, 4, 6, 2])
+    b = np.array([4, 2, -1, 7])
+
+    dst = euclidean(a, b)
+
+.. code-block:: python
+
+    import numpy as np
+
+    def euclidean_distance(x, y):
+        return np.sqrt(np.sum((x - y) ** 2))
+
+    a = np.array([1, 1, 5, 6, 7, 8])
+    b = np.array([2, 2, 3, 6, 4, 6])
+
+    dist = euclidean_distance(a, b)
+    print(dist)
+
+    from scipy.spatial.distance import euclidean
+
+    dist = euclidean(a, b)
+    print(dist)
+
+Manhattan Uzaklığı
+------------------
+
+Öklit uzaklığının dışında daha az kullanılıyor olsa da birkaç önemli uzaklık tanımı daha vardır. Manhattan
+uzaklığı (Manhattan distance) iki nokta arasındaki birbirine dik doğrularla gidilebilen uzaklıktır. (New
+York'taki Manhattan denilen bölge birbirlerini kesen büyük caddelerden oluşmaktadır. Bir yerden bir yere gitmek
+için bu cadde kesişimlerinden geçmek gerekir. Bu nedenle bu uzaklık *Manhattan uzaklığı* biçiminde
+isimlendirilmiştir.) a ve b noktalar, i ise uzayın boyut indeksi olmak üzere Manhattan uzaklığı matematiksel
+olarak Σ|aᵢ - bᵢ| biçiminde hesaplanmaktadır. Bu hesabı yapan fonksiyonu NumPy kullanılarak şöyle yazabiliriz:
+
+.. code-block:: python
+
+    import numpy as np
+
+    def manhattan_distance(a, b):
+        return np.sum(np.abs(a - b))
+
+    a = np.array([1, 2, 3, 4])
+    b = np.array([5, 6, 7, 8])
+
+    mdist = manhattan_distance(a, b)
+    print(mdist)
+
+Manhattan uzaklığı için SciPy kütüphanesinde ``scipy.spatial.distance`` modülündeki ``cityblock`` isimli bir
+fonksiyon bulunmaktadır:
+
+.. code-block:: python
+
+    from scipy.spatial.distance import cityblock
+
+    mdist = cityblock(a, b)
+    print(mdist)
+
+Hamming Uzaklığı
+----------------
+
+Özellikle görüntü işleme (genel olarak sayısal işaret işleme) uygulamalarında *Hamming uzaklığı (Hamming
+distance)* denilen bir uzaklık da kullanılmaktadır. Hamming uzaklığı *ikili (binary)* kategorik sütunlara sahip
+noktalar söz konusu olduğunda tercih edilen bir uzaklık türüdür. Hamming uzaklığı *farklı olan elemanların
+sayısının toplam eleman sayısına oranı* ile hesaplanmaktadır. Örneğin:
+
+::
+
+    ankara
+    ayazma
+
+Bu iki yazının Hamming uzaklığı 4/6 = 2/3'tür.
+
+Hamming uzaklığı SciPy kütüphanesinde ``scipy.spatial.distance`` modülündeki ``hamming`` isimli fonksiyonla
+hesaplanabilir. Örneğin:
+
+.. code-block:: python
+
+    from scipy.spatial.distance import hamming
+
+    a = np.array([1, 0, 0, 1])
+    b = np.array([1, 1, 0, 0])
+
+    hdist = hamming(a, b)
+    print(hdist)                      # 0.5
+
+Kosinüs Uzaklığı
+----------------
+
+Kosinüs uzaklığı da bazı uygulamalarda kullanılmaktadır. İki nokta arasındaki açının kosinüsü ile
+hesaplanmaktadır. Bu uzaklık için de ``scipy.spatial.distance`` modülünde ``cosine`` fonksiyonu
+bulundurulmuştur. Örneğin:
+
+.. code-block:: python
+
+    import numpy as np
+    from scipy.spatial.distance import cosine
+
+    a = np.array([1, 0, 0, 1])
+    b = np.array([1, 1, 0, 0])
+
+    hdist = cosine(a, b)
+    print(hdist)                # 0.5
+
+Uzaklık Matrisleri: pdist ve cdist
+----------------------------------
+
+Bazı algoritmalarda (örneğin agglomerative hiyerarşik kümeleme algoritmalarında) belli sayıda noktanın
+birbirleri arasındaki tüm uzaklıkların bir uzaklık matrisi biçiminde hesaplanması gerekebilmektedir. Bunun için
+SciPy kütüphanesinde ``scipy.spatial.distance`` modülünde ``pdist`` ve ``cdist`` fonksiyonları
+bulundurulmuştur. ``cdist`` fonksiyonu bize simetrik bir matris verirken ``pdist`` fonksiyonu tek boyutlu
+kompakt hale getirilmiş bir diziyi (yani simetrik matrisin yalnızca bir yarısının tek boyutlu dizi haline
+getirilmiş biçimini) vermektedir. Bu fonksiyonların ayrıntılarını dokümanlardan inceleyebilirsiniz. Aşağıda
+örnek bir kullanım verilmiştir.
+
+.. code-block:: python
+
+    import numpy as np
+    from scipy.spatial.distance import pdist, cdist
+
+    points = np.array([[1, 2], [1, 3], [3, 1], [4, 2], [2, 3]])
+
+    result = cdist(points, points, metric='euclidean')
+    print(result)
+
+    print('-' * 20)
+
+    result = pdist(points, metric='euclidean')
+    print(result)
+
+Özellik Ölçeklemesi ve Uzaklık Hesapları
+----------------------------------------
+
+Veri kümelerindeki uzaklıklar satırsal biçimde hesaplandığı için (her satır bir nokta belirtmektedir) sütunlar
+arasındaki skala farklılıkları bu uzaklık hesaplarını olumsuz etkileyebilmektedir. Örneğin üç sütundan oluşan
+aşağıdaki gibi bir veri kümesi olsun:
+
+.. code-block:: text
+
+    F1      F2      F3
+    0.2     123     1234678
+    0.4     567     2567865
+    0.7     328     1876345
+    ...     ...     ...
+
+Burada iki nokta arasındaki Öklit uzaklığında asıl etkili olan sütun üçüncü sütundur. Birinci sütunun neredeyse
+hiçbir etkisi yoktur. O halde bizim bu tür uzaklık hesaplamalarında sütunların skalalarını benzer hale getirmek
+için özellik ölçeklemesi uygulamamız gerekir. Tabii bazı uzaklık ölçütleri (örneğin kosinüs uzaklığı gibi)
+sütunların skala farklılıklarından olumsuz etkilenmez. Ancak örneğin Öklit uzaklığı gibi, Manhattan uzaklığı gibi
+uzaklıklar bu skala farklılıklarından etkilenmektedir.
+
+Metin kümelemesinde sözcükler özellikleri belirttiği için ve bazı sözcükler çok bazıları az kullanıldığı için çok
+kullanılan sözcüklerin kümelemede uzaklık hesabından dolayı etkisi artmaktadır. Bu nedenle metin kümelemesinde de
+mutlaka uzaklık hesabı yapmak gerekir.
+
+Kümeleme Algoritmalarının Sınıflandırılması
+-------------------------------------------
+
+Yüzün üzerinde kümeleme algoritması geliştirilmiştir. Bazı algoritmalar bazı algoritmaların biraz değiştirilmiş
+biçimleri gibidir. Ancak bazı algoritmalar tamamen farklı fikirlere dayanmaktadır. Kümeleme algoritmalarını kendi
+aralarında algoritmanın dayandığı fikir bakımından beş gruba ayırabiliriz:
+
+1) Ağırlık Merkezi (Centroid) Temelli Algoritmalar
+2) Bağlantı (Connectivity) Temelli Algoritmalar (Hiyerarşik Kümeleme Algoritmaları)
+3) Yoğunluk Temelli (Density Based) Algoritmalar
+4) Dağılım Temelli (Distribution Based) Algoritmalar
+5) Bulanık Temelli (Fuzzy Based) Algoritmalar
+
+K-Means Algoritmasına Giriş
+---------------------------
+
+Kümeleme algoritmalarının en popüler ve yaygın olarak kullanılanı ve en iyi bilineni K-Means denilen
+algoritmadır. K-Means ağırlık merkezi temelli bir algoritmadır. Buradaki *Means* ağırlık merkezi oluştururken
+ortalamanın dikkate alınması nedeniyle kullanılmış olan bir sözcüktür. Aslında ağırlık merkezi oluşturulurken
+ortalamanın dışında başka hesaplamalar da kullanılabilmektedir. Dolayısıyla bu yöntemin K-XXX biçiminde (burada
+XXX alt yöntemi belirten bir isimdir) varyasyonları vardır. Bu varyasyonların bazıları şunlardır:
+
+- K-Medoids
+- K-Modes
+- K-Prototypes
+- K-Centers
+- K-Medians
+- K-Nearest Neighbors
+
+Ancak bu aileden en çok kullanılanı K-Means isimli algoritmadır.
+
+K-Means Algoritmasının İşleyişi
+-------------------------------
+
+K-Means kümeleme algoritmasında işin başında uygulamacının noktalardan kaç küme oluşturulacağını belirlemiş
+olması gerekir. Küme sayıları bazı uygulamalarda zaten biliniyor durumda olabilir. Örneğin çok sayıda resim söz
+konusu olabilir ve bu resimlerin 10 farklı meyveye ilişkin olduğu zaten biliniyor olabilir. Ancak bazı
+uygulamalarda küme sayısını uygulamacı da bilmiyor olabilir. Bu tür durumlarda uygun küme sayısının belirlenmesi
+ayrı bir problem biçiminde karşımıza çıkmaktadır. Biz burada küme sayısının baştan bilindiğini ve bunun k
+olduğunu varsayacağız. (K-Means ismindeki K harfi de k tane küme sayısından gelmektedir.)
+
+Algoritmanın tipik işleyişi şöyledir:
+
+1) k tane küme için işin başında rastgele k tane ağırlık merkezi belirten nokta oluşturulur. Bu noktalar mevcut
+   noktalar içerisinden rastgele seçilebilir.
+
+2) Tüm noktaların bu k tane ağırlık merkezine uzaklıkları hesaplanır. Noktalar hangi ağırlık merkezine daha
+   yakınsa o kümenin içerisine dahil edilir. Artık k tane kümeden oluşan ilk kümeleme yapılmıştır.
+
+3) Kümelerin yeni ağırlık merkezleri küme içerisindeki noktalardan hareketle hesaplanır. Küme içerisindeki
+   noktaların ağırlık merkezleri her boyutun kendi aralarındaki ortalamaları ile hesaplanmaktadır. Örneğin x, y,
+   z boyutlarına sahip a, b, c noktalarının ağırlık merkezleri şöyle hesaplanır:
+
+::
+
+    centroidx = (ax + bx + cx) / 3
+    centroidy = (ay + by + cy) / 3
+    centroidz = (az + bz + cz) / 3
+
+Zaten bu yönteme K-Means ismi ağırlık merkezi bulunurken her boyutun kendi aralarındaki ortalamasının
+hesaplanması nedeniyle verilmiştir.
+
+Aslında burada yapılan işlem noktalar ``dataset`` biçiminde iki boyutlu bir NumPy matrisi biçiminde ise
+``np.mean(dataset, axis=0)`` işlemidir.
+
+4) Tüm noktaların yeniden bu yeni ağırlık merkezlerine uzaklığı hesaplanır. Hangi noktalar hangi ağırlık
+   merkezine daha yakınsa o kümeye dahil edilir. Böylece bazı noktalar küme değiştirecektir. Sonra 3'üncü adıma
+   geri dönülür ve işlemler bu biçimde devam ettirilir.
+
+5) Eğer yeni ağırlık merkezine göre hiçbir nokta küme değiştirmiyorsa artık yapılacak bir şey kalmamıştır ve
+   algoritma sonlandırılır.
+
+Aşağıdaki şema, algoritmanın bu adımlar arasındaki akışını özetlemektedir:
+
+.. figure:: _static/classicnaturallanguageprocessing/kmeans-flow.png
+   :alt: K-Means algoritmasının akış şeması
+   :align: center
+
+   K-Means (Lloyd) algoritmasının yinelemeli işleyişi
+
+K-Means yönteminin burada uygulanan algoritmasına *Lloyd* algoritması denilmektedir. Bu algoritma Stuart Lloyd
+tarafından 1957 yılında geliştirilmiştir.
+
+K-Means Algoritmasının Gerçekleştirimi ve scikit-learn KMeans Sınıfı
+====================================================================
+
+K-Means Algoritmasının Python ile Gerçekleştirimi
+-------------------------------------------------
+
+Lloyd algoritmanın basit bir gerçekleştirimi şöyle yapılabilir:
+
+.. code-block:: python
+
+    def kmeans(dataset_x, k):
+        dataset_x = np.array(dataset_x)
+
+        row_indices = np.random.choice(dataset_x.shape[0], k, replace=False)
+        centroids = dataset_x[row_indices].astype(np.float64)
+
+        while True:
+            distances = np.sqrt(np.sum((dataset_x[:, np.newaxis, :] - centroids) ** 2, axis=2))
+            labels = np.argmin(distances, axis=1)
+
+            new_centroids = np.zeros((k, dataset_x.shape[1]))
+            for i in range(k):
+                cluster_points = dataset_x[labels == i]
+                if len(cluster_points) == 0:
+                    new_centroids[i] = centroids[i]
+                else:
+                    new_centroids[i] = np.mean(cluster_points, axis=0)
+
+            if np.array_equal(centroids, new_centroids):
+                break
+
+            centroids = new_centroids
+
+        clusters = [np.where(labels == i)[0] for i in range(k)]
+
+        return clusters, centroids
+
+Burada yukarıda açıkladığımız adımlar döngü içerisinde uygulanmıştır. Fonksiyon iki elemanlı bir demete geri
+dönmektedir. Demetin ilk elemanı k tane NumPy dizisinden oluşmaktadır. Bu dizi her kümeye atanmış olan
+elemanların satır numaralarından oluşmaktadır. Demetin ikinci elemanı k tane kümenin ağırlık merkezlerini
+vermektedir. Fonksiyonu aşağıdaki gibi test edebilirsiniz:
+
+.. code-block:: python
+
+    k = 5
+    dataset_x = pd.read_csv('../Data/cluster_points.csv').to_numpy()
+    dataset_x, _ = make_blobs(centers=k, cluster_std=3, random_state=0)
+
+    clusters, centroids = kmeans(dataset_x, k)
+
+    for i in range(k):
+        x = dataset_x[clusters[i]][:, 0]
+        y = dataset_x[clusters[i]][:, 1]
+        plt.scatter(x, y)
+    plt.scatter(centroids[:, 0], centroids[:, 1], marker='x', color='red')
+
+    plt.show()
+
+.. code-block:: python
+
+    import numpy as np
+
+    def kmeans(dataset_x, k):
+        dataset_x = np.array(dataset_x)
+
+        row_indices = np.random.choice(dataset_x.shape[0], k, replace=False)
+        centroids = dataset_x[row_indices].astype(np.float64)
+
+        while True:
+            distances = np.sqrt(np.sum((dataset_x[:, np.newaxis, :] - centroids) ** 2, axis=2))
+            labels = np.argmin(distances, axis=1)
+
+            new_centroids = np.zeros((k, dataset_x.shape[1]))
+            for i in range(k):
+                cluster_points = dataset_x[labels == i]
+                if len(cluster_points) == 0:
+                    new_centroids[i] = centroids[i]
+                else:
+                    new_centroids[i] = np.mean(cluster_points, axis=0)
+
+            if np.array_equal(centroids, new_centroids):
+                break
+
+            centroids = new_centroids
+
+        clusters = [np.where(labels == i)[0] for i in range(k)]
+
+        return clusters, centroids
+
+
+    import matplotlib.pyplot as plt
+    from sklearn.datasets import make_blobs
+
+    k = 5
+    dataset_x, _ = make_blobs(centers=k, cluster_std=3, random_state=0)
+    clusters, centroids = kmeans(dataset_x, k)
+
+    for i in range(k):
+        x = dataset_x[clusters[i]][:, 0]
+        y = dataset_x[clusters[i]][:, 1]
+        plt.scatter(x, y)
+    plt.scatter(centroids[:, 0], centroids[:, 1], marker='x', color='red')
+
+    plt.show()
+
+En İyi Kümelemenin Seçilmesi: Atalet (Inertia) Kavramı
+------------------------------------------------------
+
+``KMeans`` algoritması rastgele noktaları ağırlık merkezi yaparak işe başladığı için programın her çalışmasında
+farklı kümeler elde edilebilmektedir. Bu durumda hangi kümelemenin kabul edileceği konusunda belirsizlik
+oluşabilmektedir. Bu nedenle K-Means algoritmasını birden fazla kez uygulayıp en iyi sonucun nihai sonuç olarak
+belirlenmesi yoluna gidilmektedir. Burada ölçüt her noktanın kendi ağırlık merkezlerine uzaklıkları esasına
+dayandırılmaktadır. Bu da aslında toplam varyansın en küçük olduğu kümeleme anlamına gelmektedir.
+
+Yukarıda belirttiğimiz yöntemi biraz daha açalım. Elimizde alternatif iki kümeleme olsun. Bunların hangisinin
+diğerinden daha iyi olduğunu nasıl belirleyebiliriz? İşte en çok kullanılan performans ölçütü *atalet (inertia)*
+denilen ölçüttür. Atalet *noktaların kendi ağırlık merkezlerine uzaklıklarının karelerinin toplamına*
+denilmektedir. Bu aslında istatistikteki varyans işlemi gibidir. Yani aslında bu yöntemde en küçük toplam
+varyansa bakılmaktadır. O halde biz K-Means algoritmasını birden fazla kez çalıştırıp her kümelemenin ataletine
+bakıp en iyi atalete sahip olan kümelemeyi seçebiliriz. Bu işlemi aşağıdaki fonksiyonla yapabiliriz:
+
+.. code-block:: python
+
+    def kmeans_cluster(dataset_x, k, n_init=10):
+        cluster_list = []
+        for _ in range(n_init):
+            clusters, centroids = kmeans(dataset_x, k)
+            total_inertia = 0
+            for i in range(k):
+                total_inertia += np.sum((dataset_x[clusters[i]] - centroids[i]) ** 2)
+            cluster_list.append((total_inertia, clusters, centroids))
+
+        min_index = 0
+        for i in range(1, n_init):
+            if cluster_list[i][0] < cluster_list[min_index][0]:
+                min_index = i
+
+        return cluster_list[min_index][1], cluster_list[min_index][2]
+
+Burada görüldüğü gibi algoritma ``n_init`` kere çalıştırılmış, sonuçlar bir listede saklanmış ve en düşük
+ataletli çözüm elde edilmiştir. Aslında tüm sonuçların bir listede toplanmak yerine daha küçük bir sonuç varsa
+saklama yoluna da gidilebilir. Örneğin:
+
+.. code-block:: python
+
+    def kmeans_cluster(dataset_x, k, n_init=10):
+        total_inertia = -1
+        for i in range(n_init):
+            total_inertia_new = 0
+            clusters_new, centroids_new = kmeans(dataset_x, k)
+            for j in range(k):
+                total_inertia_new += np.sum((dataset_x[clusters_new[j]] - centroids_new[j]) ** 2)
+            if i == 0 or total_inertia_new < total_inertia:
+                clusters = clusters_new
+                centroids = centroids_new
+                total_inertia = total_inertia_new
+
+        return clusters, centroids
+
+K-Means ile Kestirim Yapabilme
+------------------------------
+
+K-Means kümeleme yönteminin güzel bir tarafı kestirim yapmaya olanak sağlamasıdır. (Her kümeleme algoritmasının
+bu özelliği yoktur.) Kümeleme yapıldıktan sonra yeni bir noktanın bu kümelerden hangisine atanabileceği basit
+bir biçimde belirlenebilmektedir. Yeni nokta hangi kümenin ağırlık merkezine daha yakınsa o kümeye atanabilir.
+
+scikit-learn KMeans Sınıfı
+--------------------------
+
+K-Means kümeleme algoritması scikit-learn içerisinde ``sklearn.cluster`` modülündeki ``KMeans`` isimli sınıfla
+gerçekleştirilmiştir. Sınıfın ``__init__`` metodunun parametrik yapısı şöyledir:
+
+.. code-block:: python
+
+    class sklearn.cluster.KMeans(n_clusters=8, *, init='k-means++', n_init='auto', max_iter=300, tol=0.0001,
+            verbose=0, random_state=None, copy_x=True, algorithm='lloyd')
+
+Metodun ``n_clusters`` parametresi ayrıştırılacak küme sayısını (k değerini), ``init`` parametresi başlangıçtaki
+rastgele ağırlık merkezlerinin nasıl oluşturulacağını belirtmektedir. ``init`` parametresinin default değeri
+*kmeans++* biçimindedir. Bu parametreye *random* değeri de girilebilir. Bu durumda ilk ağırlık merkezleri
+rastgele satırlardan seçilecektir. Ayrıca bu parametreye programcı kendi ağırlık merkezlerini bir NumPy matrisi
+biçiminde de girebilir. Metodun ``n_init`` parametresi algoritmanın kaç kez çalıştırılıp en iyisinin
+bulunacağını belirtmektedir. Bu parametrenin default değeri *auto* biçimdedir. Bu *auto* default değeri
+kullanıldığında algoritmanın kaç kez çalıştırılacağı metodun ``init`` parametresine bağlı olarak değişmektedir.
+Eğer ``init`` parametresi *k-means++* ya da NumPy dizisi biçimindeyse algoritma 1 kez çalıştırılır, *random*
+biçimindeyse 10 kez çalıştırılır. En iyi değer *atalete (inertia)* bağlı olarak belirlenmektedir. Metodun
+``max_iter`` parametresi bir çalıştırmanın toplamda en fazla kaç iterasyon süreceğini belirtmektedir. Bu
+parametrenin default değerinin 300 olduğunu görüyorsunuz. Yani algoritma 300 adımda kararlı noktaya gelmezse
+sonlandırılmaktadır. Metodun ``algorithm`` parametresi kullanılacak algoritmanın varyasyonunu belirtmektedir. Bu
+parametrenin default değeri *lloyd* biçimindedir. K-Means algoritmaları arasında küçük farklılıklar vardır.
+Yukarıda açıkladığımız algoritma Lloyd algoritmasıdır. Ancak noktaların durumuna göre bu varyasyonlar arasında
+hız açısından farklılıklar söz konusu olabilmektedir.
+
+``KMeans`` nesnesi yaratıldıktan sonra kümeleme algoritması ``fit`` metodu ile çalıştırılır. ``fit`` metodu
+parametre olarak veri kümesini iki boyutlu bir matris biçiminde bizden alır ve kümelemeyi yapar, nesnenin
+kendisiyle geri döner. Kümeleme işlemi bittikten sonra nesnenin aşağıda belirttiğimiz özniteliklerinden kümeleme
+sonucundaki bilgiler elde edilebilmektedir.
+
+KMeans Sınıfının Öznitelikleri
+------------------------------
+
+``cluster_centers_``: Bu öznitelik nihai durumdaki ağırlık merkezlerini vermektedir.
+
+``labels_``: Her noktanın hangi küme içerisinde yer aldığına yönelik tek boyutlu bir NumPy dizisini belirtir.
+Buradaki kümeler 0'dan başlanarak numaralandırılmıştır. Örneğin biz ``labels_`` özniteliğinden aşağıdaki gibi
+bir NumPy dizisi elde edebiliriz:
+
+::
+
+    array([2, 1, 0, 1, 0, 2, 1, 1, 0, 2, 2, 1])
+
+Burada sırasıyla noktaların kaç numaralı kümeye ilişkin olduğu belirtilmektedir. Kümelemede kümelenmiş olan
+olguların ne olduğu bilinmemektedir, dolayısıyla da bunlara bir isim verilememektedir. ``KMeans`` sınıfı bize
+ayrıca kümelerdeki noktaları vermemektedir. Ancak biz bu öznitelikten hareketle hangi noktaların hangi kümelerin
+içerisinde olduğunu ``dataset[km.labels_ == n]`` işlemi ile elde edebiliriz.
+
+``inertia_``: Bu öznitelik tüm noktaların kendi ağırlık merkezlerine uzaklıklarının karelerinin toplamını
+vermektedir. Bu değerin bir performans ölçütü olarak kullanıldığını belirtmiştik.
+
+``n_iter_``: Bu öznitelik sonuca varmak için kaç iterasyonun uygulandığını bize verir.
+
+``n_features_in_``: Veri kümesindeki sütunların sayısını belirtir.
+
+transform ve fit_transform Metotları
+------------------------------------
+
+Sınıfın ``transform`` metodu önemli bir işlem yapmamaktadır. ``transform`` metoduna biz birtakım noktalar
+verdiğimizde metot bize o noktaların tüm ağırlık merkezlerine uzaklığını verir. Benzer biçimde ``fit_transform``
+metodu da önce ``fit`` işlemi ile kümelemeyi yapıp sonra da ``transform`` işlemi yapar. Ancak bu sınıfta
+``transform`` ve ``fit_transform`` çok kullanılan metotlar değildir. Yani:
+
+.. code-block:: python
+
+    km.fit(dataset)
+    result = km.transform(dataset)
+
+işlemi ile:
+
+.. code-block:: python
+
+    result = fit_transform(dataset)
+
+aynı işleve sahiptir. ``fit_transform`` işlemi ile biz önce K-Means algoritmasını uygulayıp sonra her noktanın
+tüm ağırlık merkezlerine uzaklıklarını iki boyutlu bir NumPy dizisi biçiminde elde ederiz.
+
+predict ve fit_predict Metotları
+--------------------------------
+
+Sınıfın ``predict`` metodu bizden alınan noktaların hangi kümeler içerisinde yer alabileceğini belirtmektedir.
+Yani aslında metot aldığı noktaların tüm ağırlık merkezlerine uzaklığını hesaplayıp en yakın ağırlık merkezinin
+ilişkin olduğu kümeyi vermektedir. Sınıfın ``fit_predict`` isimli metodu ise önce ``fit`` işlemi yapıp sonra
+``predict`` işlemi yapmaktadır. Yani:
+
+.. code-block:: python
+
+    predict_result = km.fit(dataset).predict(dataset)
+
+İşleminin eşdeğeri şöyledir:
+
+.. code-block:: python
+
+    predict_result = fit_predict(dataset)
+
+Örnek: cluster_points.csv ile KMeans Kullanımı
+----------------------------------------------
+
+Aşağıda ``KMeans`` sınıfının kullanımına ilişkin bir örnek verilmiştir. Örnekte kümeleme işlemi şöyle
+yapılmıştır:
+
+.. code-block:: python
+
+    dataset_x = pd.read_csv('../Data/cluster_points.csv').to_numpy()
+    dataset = df.to_numpy(dtype='float32')
+
+    km = KMeans(n_clusters=k, n_init=10)
+    km.fit(dataset)
+
+Biz burada küme sayısını temsil eden k değerini 3 olarak belirledik. Örnekte kümeleme sonucunda elde edilen tüm
+bilgiler yazdırılmıştır ve her kümedeki noktalar saçılma grafiği ile gösterilmiştir. Ayrıca örnekte bir kestirim
+işlemi yapılıp kestirilen noktaların da hangi kümeler içerisine düştüğü ayrı bir grafikle gösterilmiştir.
+Örnekte kullandığımız `cluster_points.csv` dosyasının içeriği de şöyledir:
+
+.. code-block:: text
+
+    X1,X2
+    7,8
+    2,4
+    6,4
+    3,2
+    6,5
+    5,7
+    3,3
+    1,4
+    5,4
+    7,7
+    7,6
+    2,1
+
+.. code-block:: python
+
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    from sklearn.cluster import KMeans
+
+    dataset_x = pd.read_csv('../Data/cluster_points.csv').to_numpy()
+
+    k = 3
+    km = KMeans(n_clusters=k, n_init=10)
+    km.fit(dataset_x)
+
+    predict_point = [5, 5]
+
+    for i in range(k):
+        x = dataset_x[km.labels_ == i, 0]
+        y = dataset_x[km.labels_ == i, 1]
+        plt.scatter(x, y)
+        plt.text(km.cluster_centers_[i, 0] + 0.5, km.cluster_centers_[i, 1], str(i))
+    plt.scatter(km.cluster_centers_[:, 0], km.cluster_centers_[:, 1], marker='x', color='red')
+    plt.scatter(predict_point[0], predict_point[1], marker='v', color='magenta')
+    plt.show()
+
+    predict_result = km.predict([predict_point])
+    print(f'result: {predict_result[0]}')
+
+Metin Kümelemesi Uygulaması: Haber Başlıklarının Kümelenmesi
+============================================================
+
+Haber Metinlerinin K-Means ile Kümelenmesi
+------------------------------------------
+
+K-Means kümeleme yöntemini gördükten sonra şimdi asıl uygulama alanımıza dönelim. Birtakım yazıları aralarındaki
+benzerliklere dayalı olarak kümelemeye çalışalım. Bunun için lojistik regresyon örneğindeki gibi yine yazıları
+atomlarına ayırıp onları BoW ya da TF-IDF yöntemiyle vektör haline getiririz. Böylece her yazı n boyutlu uzayda
+bir nokta biçiminde ifade edilir. Sonra da kümeleme yöntemini uygularız. Örneğin elimizde 1000 tane yazı olsun.
+Bu yazılardaki atomların toplam sayısı da 5000 tane olsun. Bu durumda biz yazılardan 1000 tane satıra sahip 5000
+tane sütuna sahip bir matris oluştururuz. Matrisin her satırı (yani her yazı) sanki 5000 boyutlu uzayda bir nokta
+gibidir. K-Means algoritması da 5000 boyutlu uzaydaki birbirine yakın noktaları aynı kümeye sokacaktır.
+
+Örneğin çeşitli haber yazılarını K-Means yöntemiyle kümelemek isteyelim. Veri kümesini kullanıma hazır hale
+şöyle getirebiliriz:
+
+.. code-block:: python
+
+    NCLUSTERS = 7
+
+    df = pd.read_csv('../Data/turkish_headlines.csv')
+    dataset_x = df['HABERLER']
+
+    print('Labels: ', end='')
+    print(*df['ETIKET'].unique(), sep=', ')
+
+Bu veri kümesi etiketlenmiştir ancak kümeleme *denetimsiz (unsupervised)* bir yöntem olduğu için bu etiketleri
+kullanmayacağız. Veri kümesinde 7 farklı etiket olduğu için biz de haberleri 7 kümeye ayırabiliriz. Veri
+kümesindeki sözcükleri küçük harflere dönüştürüp TF-IDF yöntemiyle vektörize edebiliriz:
+
+.. code-block:: python
+
+    def turkish_lowercase(text):
+        return text.replace('İ', 'i').replace('I', 'ı').lower()
+
+    tfidfv = TfidfVectorizer(preprocessor=turkish_lowercase, lowercase=False)
+    tfidfv.fit(dataset_x)
+    transformed_dataset_x = tfidfv.transform(dataset_x)
+
+Tabii yine *gövdeleme (stemming)* ya da *sözlüksel biçime dönüştürme (lemmatization)* uygulamak tavsiye edilir.
+Ancak biz burada örneği basit tutmak için bunları uygulamayacağız. TF-IDF vektörizasyonunun kendi içerisinde
+zaten özellik ölçeklemesini de yaptığını anımsayınız. Kümeleme işlemini şöyle yapabiliriz:
+
+.. code-block:: python
+
+    km = KMeans(NCLUSTERS, n_init=10)
+    km.fit(transformed_dataset_x)
+
+Tüm kümeleri analiz yapmak amacıyla ayrı csv dosyası biçiminde oluşturabiliriz:
+
+.. code-block:: python
+
+    for i in range(NCLUSTERS):
+        dataset_x[km.labels_ == i].to_csv(f'Cluster-{i}.csv', index=False)
+
+Örneğimizdeki uzayın boyut sayısı 15563'tür. Biz *boyutsal özellik indirgemesi* yoluyla bu özellikleri 2'ye
+indirip saçılma grafiği çizebiliriz. Boyutsal özellik indirgemesi için en çok kullanılan yöntem *temel
+bileşenler analizi (principal component analysis)* denilen yöntemdir. Bu yöntem scikit-learn kütüphanesinde
+``PCA`` isimli sınıfla gerçekleştirilmiştir:
+
+.. code-block:: python
+
+    pca = PCA(n_components=2)
+    pca.fit(transformed_dataset_x)
+    reduced_transformed_dataset_x = pca.transform(transformed_dataset_x)
+    reduced_centroids = pca.transform(km.cluster_centers_)
+
+    plt.figure(figsize=(8, 6))
+    for i in range(NCLUSTERS):
+        x = reduced_transformed_dataset_x[km.labels_ == i, 0]
+        y = reduced_transformed_dataset_x[km.labels_ == i, 1]
+        plt.scatter(x, y)
+    plt.scatter(reduced_centroids[:, 0], reduced_centroids[:, 1], marker='x', color='red')
+    plt.legend([f'Cluster-{i}' for i in range(NCLUSTERS)])
+    plt.show()
+
+Biz haberleri K-Means kümelemesi ile kümelendirdikten sonra başka bir haberin kümelerden hangisine ait olduğunu
+da tespit edebiliriz. Örneğin:
+
+.. code-block:: python
+
+    news = """
+        Ortadoğu'daki jeopolitik risklerin nispeten dengelenmesiyle piyasalar, Fed'in şahin mesajlarına ve Nvidia'nın rekor
+        bilançosuna odaklandı. Gelecek hafta ABD'de istihdam, Avrupa'da enflasyon, yurtiçinde ise büyüme verileri piyasaların
+        yönünü belirleyecek
+    """
+
+    transformed_news = tfidfv.transform([news])
+    predict_result = km.predict(transformed_news)
+    print(predict_result)
+
+Örneği bütünsel olarak aşağıda veriyoruz.
+
+.. code-block:: python
+
+    import pandas as pd
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.cluster import KMeans
+
+    NCLUSTERS = 7
+
+    df = pd.read_csv('../Data/turkish_headlines.csv')
+    dataset_x = df['HABERLER']
+
+    print('Labels: ', end='')
+    print(*df['ETIKET'].unique(), sep=', ')
+
+    def turkish_lowercase(text):
+        return text.replace('İ', 'i').replace('I', 'ı').lower()
+
+    tfidfv = TfidfVectorizer(preprocessor=turkish_lowercase, lowercase=False)
+    tfidfv.fit(dataset_x)
+    transformed_dataset_x = tfidfv.transform(dataset_x)
+
+    km = KMeans(NCLUSTERS, n_init=10)
+    km.fit(transformed_dataset_x)
+
+    for i in range(NCLUSTERS):
+        dataset_x[km.labels_ == i].to_csv(f'Cluster-{i}.csv', index=False)
+
+    from sklearn.decomposition import PCA
+    import matplotlib.pyplot as plt
+
+    pca = PCA(n_components=2)
+    pca.fit(transformed_dataset_x)
+    reduced_transformed_dataset_x = pca.transform(transformed_dataset_x)
+    reduced_centroids = pca.transform(km.cluster_centers_)
+
+    plt.figure(figsize=(8, 6))
+    for i in range(NCLUSTERS):
+        x = reduced_transformed_dataset_x[km.labels_ == i, 0]
+        y = reduced_transformed_dataset_x[km.labels_ == i, 1]
+        plt.scatter(x, y)
+    plt.scatter(reduced_centroids[:, 0], reduced_centroids[:, 1], marker='x', color='red')
+    plt.legend([f'Cluster-{i}' for i in range(NCLUSTERS)])
+    plt.show()
+
+    news = """
+        Ortadoğu'daki jeopolitik risklerin nispeten dengelenmesiyle piyasalar, Fed'in şahin mesajlarına ve Nvidia'nın
+        rekor bilançosuna odaklandı. Gelecek hafta ABD'de istihdam, Avrupa'da enflasyon, yurtiçinde ise büyüme verileri
+         piyasaların yönünü belirleyecek
+    """
+
+    transformed_news = tfidfv.transform([news])
+    predict_result = km.predict(transformed_news)
+    print(predict_result)
+
+Kümelerin Manuel Olarak Etiketlendirilmesi
+------------------------------------------
+
+Peki elimizde haberler etiketli olmasaydı, biz oluşturulan kümelerdeki haberleri kendimiz nasıl
+etiketlendirebilirdik? Aslında bunu yapmanın klasik doğal dil işleme sınırları içerisinde kesin bir yolu yoktur.
+Ancak kolaylaştırıcı bazı yöntemler kullanılabilir. Eninde sonunda insanların gözle bu haberleri okuyup
+etiketlendirmeyi manuel yapması gerekir. Burada kolaylaştırıcı yöntemlerin bazıları şunlar olabilir:
+
+- Kümeyi temsil etme potansiyeli güçlü nispeten az sayıda sözcüklere bakmak.
+- Ağırlık merkezlerine en yakın az sayıda haberi gözden geçirmek
+- Her kümedeki haberlerden varlıkları çıkarıp tür temelinde en sık geçenleri sayma yöntemi
+
+Küme Merkezlerindeki En Belirleyici Sözcüklerin Tespiti
+-------------------------------------------------------
+
+K-Means yöntemi ile kümeleme yaptıktan sonra kümelerin ağırlık merkezlerinde en etkili olan sözcükleri elde
+ederek kümelerdeki en belirleyici sözcükleri tespit edebiliriz:
+
+.. code-block:: python
+
+    feature_names = tfidfv.get_feature_names_out()
+    centers = km.cluster_centers_
+
+    import numpy as np
+
+    for center in centers:
+        top_indices = np.argsort(center)[::-1][:20]
+        top_words = feature_names[top_indices]
+        print(f'Cluster-{i} top words: ', top_words)
+
+Burada ağırlık merkezlerindeki değerlerin indeksleri sort edilmiş ve en yüksek değere sahip olan 20 sözcük elde
+edilip yazdırılmıştır. Örnek bir çalıştırmada şu sonuçlar elde edilmiştir:
+
+.. code-block:: text
+
+    Cluster-0 top words:  ['ligi' 'lig' 'mağlup' 'süper' 'maçında' 'basketbol' 'haftasında'
+    'galatasaray' 'etti' 'nde' 'şampiyonlar' 'avrupa' 'ile' 'sahasında' 'de'
+    'deplasmanda' 'grubu' 'in' 'fenerbahçe' 'yendi']
+    Cluster-1 top words:  ['ile' 'de' 'için' 'da' 'ın' 'ölü' 'in' 'en' 'oldu' 'abd' 'nın' 'oyuncu'
+    'türkiye' 'nin' 'milli' 'olan' 'akıllı' 'gün' 'önceki' 'başbakan']
+    Cluster-2 top words:  ['erdoğan' 'cumhurbaşkanı' 'başkanı' 'genel' 'parti' 'ak' 'tayyip' 'recep'
+    'tbmm' 'chp' 'kılıçdaroğlu' 'devlet' 'etti' 'nin' 'kahraman' 'kurulu'
+    'belediye' 'mhp' 'ile' 'başbakan']
+    Cluster-3 top words:  ['bir' 'yeni' 'ile' 'de' 'da' 'için' 've' 'daha' 'olan' 'oyuncu'
+    'tarafından' 'bulundu' 'çok' 'ortaya' 'akıllı' 'seyir' 'borsalarında'
+    'önceki' 'bu' 'büyük']
+    Cluster-4 top words:  ['ve' 'yeni' 'için' 'dr' 'ile' 'uzmanı' 'akıllı' 'nin' 'da' 'bu' 'en'
+    'beslenme' 'olan' 'ın' 'de' 'olarak' 'hakkında' 'diyet' 'galaxy' 'prof']
+    Cluster-5 top words:  ['yüzde' 'milyar' 'milyon' 'bankası' 'merkez' 'tl' 'göre' 'dolar' 'arttı'
+    'endeksi' 'türkiye' 'borsa' '100' 'lira' 'yılın' 'bıst' 'değer' 'ilk'
+    'ekim' 'verilerine']
+    Cluster-6 top words:  ['kişi' 'kaybetti' 'hayatını' 'yaralandı' 'öldü' 'gözaltına' 'da' 'sonucu'
+    'bir' 'alındı' 'ilçesinde' 'meydana' 'trafik' 'operasyonda' 'yönelik'
+    'kazasında' 'gelen' 'de' 'çıkan' 'terör']
+
+Gözle kontrol için ağırlık merkezlerine en yakın noktaları tespit edip o noktalara ilişkin haberleri de
+görüntüleyebiliriz.
+
+Ağırlık Merkezlerine En Yakın Haberlerin Bulunması
+--------------------------------------------------
+
+Diğer bir analiz de ağırlık merkezlerine en yakın noktaların elde edilmesi olabilir. Noktalar kendi ağırlık
+merkezlerine ne kadar yakınsa o kümeyi o kadar iyi temsil ederler. Haber kümeleme örneğimizde biz her kümenin
+kendi ağırlık merkezlerine en yakın olan n tane noktaya ilişkin haberleri elde edebiliriz. Böylece bu kümenin
+genel yapısı hakkında az sayıda elemanı gözden geçirerek bir yargıya varabiliriz. Bu işlemi şöyle yapabiliriz:
+
+.. code-block:: python
+
+    distances = km.transform(transformed_dataset_x)
+
+    i = 0
+    for i in range(NCLUSTERS):
+    cluster_indices = np.where(km.labels_ == i)[0]
+    top_indices = np.argsort(distances[cluster_indices, i])[::-1][:10]
+    top_news = dataset_x[cluster_indices[top_indices]]
+    for news in top_news:
+        print(f'    {news}')
+        print('*' * 10)
+    print('-' * 10)
+
+Örneği bir bütün olarak aşağıda veriyoruz.
+
+.. code-block:: python
+
+    import pandas as pd
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.cluster import KMeans
+
+    NCLUSTERS = 7
+
+    df = pd.read_csv('../Data/turkish_headlines.csv')
+    dataset_x = df['HABERLER']
+
+    print('Labels: ', end='')
+    print(*df['ETIKET'].unique(), sep=', ')
+
+    def turkish_lowercase(text):
+        return text.replace('İ', 'i').replace('I', 'ı').lower()
+
+    tfidfv = TfidfVectorizer(preprocessor=turkish_lowercase, lowercase=False)
+    tfidfv.fit(dataset_x)
+    transformed_dataset_x = tfidfv.transform(dataset_x)
+
+    km = KMeans(NCLUSTERS, n_init=10)
+    km.fit(transformed_dataset_x)
+
+    for i in range(NCLUSTERS):
+        dataset_x[km.labels_ == i].to_csv(f'Cluster-{i}.csv', index=False)
+
+    from sklearn.decomposition import PCA
+    import matplotlib.pyplot as plt
+
+    pca = PCA(n_components=2)
+    pca.fit(transformed_dataset_x)
+    reduced_transformed_dataset_x = pca.transform(transformed_dataset_x)
+    reduced_centroids = pca.transform(km.cluster_centers_)
+
+    plt.figure(figsize=(8, 6))
+    for i in range(NCLUSTERS):
+        x = reduced_transformed_dataset_x[km.labels_ == i, 0]
+        y = reduced_transformed_dataset_x[km.labels_ == i, 1]
+        plt.scatter(x, y)
+    plt.scatter(reduced_centroids[:, 0], reduced_centroids[:, 1], marker='x', color='red')
+    plt.legend([f'Cluster-{i}' for i in range(NCLUSTERS)])
+    plt.show()
+
+    #-----------------------------------------------------------------------
+
+    news = """
+        Ortadoğu'daki jeopolitik risklerin nispeten dengelenmesiyle piyasalar, Fed'in şahin mesajlarına ve Nvidia'nın rekor bilançosuna odaklandı. Gelecek hafta ABD'de istihdam, Avrupa'da enflasyon, yurtiçinde ise büyüme verileri piyasaların yönünü belirleyecek
+    """
+
+    transformed_news = tfidfv.transform([news])
+    predict_result = km.predict(transformed_news)
+    print(predict_result)
+
+    #-----------------------------------------------------------------------
+
+    feature_names = tfidfv.get_feature_names_out()
+    centers = km.cluster_centers_
+
+    import numpy as np
+
+    for index, center in enumerate(centers):
+        top_indices = np.argsort(center)[::-1][:20]
+        top_words = feature_names[top_indices]
+        print(f'Cluster-{index} top words: ', top_words)
+
+    #-----------------------------------------------------------------------
+
+    distances = km.transform(transformed_dataset_x)
+
+    i = 0
+    for i in range(NCLUSTERS):
+       cluster_indices = np.where(km.labels_ == i)[0]
+       top_indices = np.argsort(distances[cluster_indices, i])[::-1][:10]
+       top_news = dataset_x[cluster_indices[top_indices]]
+       for news in top_news:
+          print(f'    {news}')
+          print('*' * 10)
+       print('-' * 10)
+
+Hiyerarşik Kümeleme, DBSCAN ve Uygun Küme Sayısının Belirlenmesi
+================================================================
+
+Bağlantı Temelli (Hiyerarşik) Kümeleme
+--------------------------------------
+
+Kümeleme için pek çok yöntemin kullanıldığını belirtmiştik. K-Means dışında en çok kullanılan kümeleme yöntem
+gruplarından diğeri de *bağlantı temelli (connectivity based)* ya da *hiyerarşik kümeleme (hierarchical
+clustering)* denilen yöntem grubudur. Bu yöntem grubu kendi içerisinde *agglomerative* ve *divisive* olmak üzere
+ikiye ayrılmaktadır. Ancak uygulamada hemen her zaman *agglomerative* yöntem kullanılmaktadır.
+
+Agglomerative hiyerarşik kümeleme algoritması tipik olarak aşağıdaki gibi yürütülmektedir. Toplam n tane nokta
+olduğunu varsayalım:
+
+1) Önce her nokta ayrı bir küme gibi ele alınır.
+
+2) Tüm noktalarla tüm noktalar arasındaki uzaklık hesaplanır. Bu simetrik bir matris oluşturacaktır.
+
+3) En yakın iki nokta tespit edilip bir küme olarak birleştirilir. Artık bu küme tek bir nokta gibi ele
+   alınacaktır. Dolayısıyla artık elimizde n - 1 tane nokta bulunmaktadır. Burada 2. adıma dönülerek yine tüm
+   noktalarla tüm noktalar arasındaki uzaklıklar hesaplanır. Ancak iki elemanlı küme sanki tek bir nokta gibi
+   değerlendirilecektir. Bu aşamadan sonra yeniden bir birleştirme yapılır. Böylece n - 2 tane nokta elde
+   edilir. İşlemler istenen k tane küme elde edilene kadar devam ettirilir.
+
+Aşağıdaki şema algoritmanın genel akışını özetlemektedir:
+
+.. figure:: _static/classicnaturallanguageprocessing/agglomerative-flow.png
+   :alt: Agglomerative hiyerarşik kümeleme akış şeması
+   :align: center
+
+   Agglomerative hiyerarşik kümeleme algoritmasının yinelemeli işleyişi
+
+Algoritmadaki önemli noktalar şunlardır:
+
+- Noktalar arasındaki uzaklıklar değişik yöntemlerle ölçülebilmektedir. En çok kullanılan uzaklık ölçütü yine
+  Öklit uzaklığıdır.
+
+- Birden fazla noktadan oluşan küme tek nokta olarak nasıl ele alınmaktadır? Bu durumda bu kümeye olan uzaklık
+  nasıl hesaplanacaktır? İşte burada birkaç hesaplama yöntemi kullanılabilmektedir:
+
+**Min Yöntemi**: Kümelerin en yakın elemanları tespit edilip uzaklık bu en yakın elemanlara göre hesaplanır.
+
+**Max Yöntemi**: Kümelerin en uzak elemanları tespit edilip uzaklık bu en uzak elemanlara göre hesaplanır.
+
+**Grup Ortalaması Yöntemi**: Noktalarla kümenin tüm noktalarının uzaklıkları hesaplanıp ortalama uzaklık elde
+edilir ve bu ortalama uzaklık dikkate alınır.
+
+**Ward Yöntemi**: Noktalarla kümenin tüm noktalarının uzaklıklarının karesi elde edilir ve bu kareli ortalama
+uzaklık kullanılır. Bu yöntem cebirsel olarak önce noktaların ağırlık merkezi bulunup o ağırlık merkezine
+uzaklığın karesiyle de uygulanabilmektedir. Genel formül şöyle oluşturulabilir:
+
+::
+
+                  n_A · n_B
+    Δ(A,B)  =  ─────────────── · ||c_A − c_B||²
+                  n_A + n_B
+
+Uygulamada en fazla *ward yöntemi* denilen yöntem kullanılmaktadır. (Bu sözcük *wo:rd* biçiminde okunmaktadır.)
+
+Agglomerative hiyerarşik kümelemede kümeleme sonrasında kestirim yapma olanağı yoktur.
+
+Agglomerative hiyerarşik kümeleme yönteminin örnek gerçekleştirimi aşağıda verilmiştir.
+
+.. code-block:: python
+
+    import numpy as np
+
+    def euclidean_distance(a, b):
+        return np.sqrt(np.sum((a - b) ** 2))
+
+    def calculate_pairwise_distances(X):
+        n_samples = X.shape[0]
+        distance_matrix = np.zeros((n_samples, n_samples))
+
+        for i in range(n_samples):
+            for j in range(i + 1, n_samples):
+                distance = euclidean_distance(X[i], X[j])
+                distance_matrix[i, j] = distance
+                distance_matrix[j, i] = distance
+
+        return distance_matrix
+
+    def update_distances(distance_matrix, clusters, new_cluster_index):
+        distance_matrix = np.delete(distance_matrix, new_cluster_index, axis=0)
+        distance_matrix = np.delete(distance_matrix, new_cluster_index, axis=1)
+        new_distances = []
+
+        for cluster_id in clusters:
+            if cluster_id != new_cluster_index:
+                dist = np.mean([distance_matrix[idx1, idx2] for idx1 in clusters[cluster_id]
+                        for idx2 in clusters[new_cluster_index]])
+                new_distances.append(dist)
+
+        new_row = np.array(new_distances)
+        distance_matrix = np.vstack([distance_matrix, new_row])
+        new_col = np.append(new_row, 0).reshape(-1, 1)
+        distance_matrix = np.hstack([distance_matrix, new_col])
+
+        return distance_matrix
+
+    def agglomerative_hierarchical_clustering(X, n_clusters=2):
+        distance_matrix = calculate_pairwise_distances(X)
+        clusters = {i: [i] for i in range(X.shape[0])}
+
+        while len(clusters) > n_clusters:
+            min_dist = np.inf
+            cluster_pair = None
+
+            for i in clusters:
+                for j in clusters:
+                    if i < j:
+                        dist = np.mean([distance_matrix[idx1, idx2] for idx1 in clusters[i] for idx2 in clusters[j]])
+                        if dist < min_dist:
+                            min_dist = dist
+                            cluster_pair = (i, j)
+
+            i, j = cluster_pair
+            clusters[i] = clusters[i] + clusters[j]
+            del clusters[j]
+            distance_matrix = update_distances(distance_matrix, clusters, j)
+
+        labels = np.zeros(X.shape[0])
+        for cluster_id, cluster in clusters.items():
+            for idx in cluster:
+                labels[idx] = cluster_id
+
+        return labels
+
+
+    # Test
+
+    np.random.seed(42)
+    X = np.random.rand(10, 2)
+
+    labels = agglomerative_hierarchical_clustering(X, n_clusters=3)
+
+    print("Cluster labels:", labels)
+
+scikit-learn AgglomerativeClustering Sınıfı
+-------------------------------------------
+
+Agglomerative hiyerarşik kümeleme işlemleri için scikit-learn kütüphanesinde ``AgglomerativeClustering`` isimli
+bir sınıf bulundurulmuştur. Sınıfın ``__init__`` metodunun parametrik yapısı şöyledir:
+
+.. code-block:: python
+
+    class sklearn.cluster.AgglomerativeClustering(n_clusters=2, *, metric='euclidean', memory=None,
+            connectivity=None, compute_full_tree='auto', linkage='ward', distance_threshold=None,
+            compute_distances=False)
+
+Metodun ``n_clusters`` parametresi oluşturulacak nihai küme sayısını belirtmektedir. ``metric`` parametresi
+uzaklık hesaplama yöntemini belirtmektedir. Bu parametrenin default değerinin *euclidean* olduğunu
+görüyorsunuz. ``linkage`` parametresi kümeye ilişkin noktaların temsil edildiği noktanın nasıl belirleneceğini
+belirlemek için kullanılmaktadır. Yani bu parametre eğer bir küme birden fazla nokta içeriyorsa bu kümenin tek
+nokta gibi ele alınabilmesi için hangi hesaplama yönteminin kullanılacağını belirtmektedir. Bu parametreye şu
+değerlerden biri girilebilir: *ward*, *average*, *complete (ya da maximum)* ve *single*. Bu parametrenin default
+değeri *ward* biçimindedir. Bu durum kümenin tüm noktalarına uzaklıklarının karelerinin ortalaması yönteminin
+kullanılacağını belirtir. *average* grup ortalaması anlamına, *complete ya da maximum* maksimum uzaklık
+anlamına, *single* ise minimum uzaklık anlamına gelmektedir. Metodun ``compute_distances`` parametresi default
+durumda ``False`` biçimdedir. Eğer bu parametre ``True`` geçilirse bu durumda fit işlemi sonrasında nesnede
+noktaların uzaklığına ilişkin bilgi veren ``distances_`` özniteliği oluşturulmaktadır. Metodun diğer
+parametrelerini dokümanlardan inceleyebilirsiniz.
+
+``AgglomerativeClustering`` nesnesi yaratıldıktan sonra yine sınıfın ``fit`` metoduyla işlemler yapılır. Yani
+kümeleme işlemini yapan asıl metot ``fit`` metodudur. ``fit`` işleminden sonra sonuçlar nesnenin
+özniteliklerinden alınabilir. Nesnenin öznitelikleri şunlardır:
+
+``n_clusters_``: Elde edilen küme sayısını belirtmektedir. Tabii küme sayısını aslında biz vermekteyiz. Ancak
+``__init__`` metodunun ``distance_threshold`` isimli parametresi için bir değer girilirse bu durumda bu eşik
+uzaklığının ötesinde kümeleme yapılmamaktadır. Eğer ``distance_threshold`` parametresi girilirse bu durumda
+``__init__`` metodunun birinci parametresi ``None`` girilmelidir. Çünkü küme sayısı artık bu eşik uzaklığa bağlı
+olarak hesaplanacaktır. Eğer ``distance_threshold`` için bir değer girilirse aynı zamanda ``__init__`` metodunun
+``compute_full_tree`` parametresi ``True`` girilmek zorundadır.
+
+``labels_``: Tıpkı ``KMeans`` sınıfında olduğu gibi noktaların sırasıyla hangi kümeler içerisinde yer aldığını
+belirten bir NumPy dizisidir.
+
+``n_features_in_``: ``fit`` işlemine sokulan veri kümesindeki sütun sayısını belirtmektedir. Bu bilgi de zaten
+elimizde önceden vardır.
+
+``distances_``: Eğer nesne yaratılırken ``compute_distances`` parametresi ``True`` geçilmişse bu örnek
+özniteliği oluşturulur. Bu durumda bu elemanda uzaklık değerleri bulunur. Bu uzaklık değerleri dendrogram
+çizerken kullanılabilmektedir.
+
+Aşağıdaki örnekte daha önce üzerinde çalıştığımız `points.csv` noktaları bu kez ``AgglomerativeClustering``
+sınıfıyla kümelenmiştir. Buradaki `points.csv` dosyasının içeriği şöyledir:
+
+.. code-block:: text
+
+    7,8
+    2,4
+    6,4
+    3,2
+    6,5
+    5,7
+    3,3
+    1,4
+    5,4
+    7,7
+    7,6
+    2,1
+
+``AgglomerativeClustering`` sınıfı seyrek matrisleri kabul etmemektedir. Dolayısıyla ``CountVectorizer`` ve
+``TfIdfVectorizer`` sınıfları ile fit işlemi yapıldıktan sonra seyrek matrisin ``toarray`` metodu ile normal
+matrise (dense matrix) dönüştürülmesi gerekir.
+
+.. code-block:: python
+
+    import pandas as pd
+    from sklearn.cluster import AgglomerativeClustering
+
+    NCLUSTERS = 3
+
+    dataset_x = pd.read_csv('../Data/cluster_points.csv').to_numpy()
+
+    ac = AgglomerativeClustering(NCLUSTERS)
+    ac.fit(dataset_x)
+
+    import matplotlib.pyplot as plt
+
+    for i in range(NCLUSTERS):
+        x = dataset_x[ac.labels_ == i, 0]
+        y =  dataset_x[ac.labels_ == i, 1]
+        plt.scatter(x, y)
+
+    plt.show()
+
+Metin Kümelemesinde Agglomerative Hiyerarşik Kümeleme
+-----------------------------------------------------
+
+Agglomerative hiyerarşik kümeleme ile metin kümelemesi de benzer biçimde yapılabilir. Aşağıda daha önce yapmış
+olduğumuz K-Means yöntemine ilişkin örneğin aynısı agglomerative hiyerarşik kümelemeyle yeniden yapılmıştır.
+Genel olarak K-Means ile kıyaslandığında agglomerative hiyerarşik yöntem daha kötü bir kümeleme yapmıştır. Bu
+durum literatürde de çeşitli makalelerde belirtilmiştir.
+
+.. code-block:: python
+
+    import pandas as pd
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.cluster import AgglomerativeClustering
+
+    NCLUSTERS = 7
+
+    df = pd.read_csv('../Data/turkish_headlines.csv')
+    dataset_x = df['HABERLER']
+
+    print('Labels: ', end='')
+    print(*df['ETIKET'].unique(), sep=', ')
+
+    def turkish_lowercase(text):
+        return text.replace('İ', 'i').replace('I', 'ı').lower()
+
+    tfidfv = TfidfVectorizer(preprocessor=turkish_lowercase, lowercase=False)
+    tfidfv.fit(dataset_x)
+    transformed_dataset_x = tfidfv.transform(dataset_x).toarray()
+
+    ac = AgglomerativeClustering(NCLUSTERS)
+    ac.fit(transformed_dataset_x)
+
+    for i in range(NCLUSTERS):
+        dataset_x[ac.labels_ == i].to_csv(f'Cluster-{i}.csv', index=False)
+
+    from sklearn.decomposition import PCA
+    import matplotlib.pyplot as plt
+
+    pca = PCA(n_components=2)
+    pca.fit(transformed_dataset_x)
+    reduced_transformed_dataset_x = pca.transform(transformed_dataset_x)
+
+    plt.figure(figsize=(8, 6))
+    for i in range(NCLUSTERS):
+        x = reduced_transformed_dataset_x[ac.labels_ == i, 0]
+        y = reduced_transformed_dataset_x[ac.labels_ == i, 1]
+        plt.scatter(x, y)
+    plt.legend([f'Cluster-{i}' for i in range(NCLUSTERS)])
+    plt.show()
+
+Yoğunluk Tabanlı Kümeleme (DBSCAN)
+----------------------------------
+
+Diğer çok kullanılan kümeleme yöntem gruplarından biri de *yoğunluk tabanlı (density based) kümeleme
+yöntemleridir*. Yoğunluk tabanlı yöntemlerde en çok kullanılan algoritma ``DBSCAN`` isimli algoritmadır. Bu
+algoritmada belli bir dairesel bölgedeki nokta sayısı fazlaysa orası yoğundur. Yoğun olan yerler ayrı bir küme
+oluşturmaktadır. Yoğunluk tabanlı algoritmalar iç içe geçmiş eliptik tarzda veri kümelerinde düzgün kümeleme
+yapabilmektedir. Ancak bu algoritmalarda dairesel alanın yarıçapı gibi, yoğunluk için gereken nokta sayısı gibi
+hyper parametrelerin belirlenmesi zordur. Metin kümelemelerinde genel olarak yoğunluk tabanlı yöntemler
+diğerlerine göre daha kötü sonuç verme eğilimindedir.
+
+Uygun Küme Sayısının Belirlenmesi
+---------------------------------
+
+Yukarıda açıkladığımız K-Means ve agglomerative yöntemlerde küme sayısının başlangıçta uygulamacı tarafından
+belirlenmiş olması gerekir. Daha önceden de belirttiğimiz gibi küme sayısı bazı durumlarda zaten önceden
+bilinmektedir. Peki ya bilinmiyorsa? Örneğin elimizdeki haberlerin hangi konulara ilişkin olduğunu ya da
+elimizde fotoğrafların hangi nesnelere ilişkin olduğunu baştan bilemeyebiliriz. Bu tür durumlarda önce uygun
+küme sayısının tespit edilmesi gerekir. Uygun küme sayısının tespit edilmesi için çeşitli yöntemler
+kullanılmaktadır. Ancak bunlardan en yaygın ikisi şunlardır:
+
+1) Dirsek Noktası Yöntemi (Elbow Point Method)
+2) Silüet Yöntemi (Silhouette Method)
+
+Dirsek Noktası Yöntemi (Elbow Point Method)
+-------------------------------------------
+
+Dirsek noktası yönteminde önce 1'den başlanarak n'e kadar küme sayıları ile kümeleme yapılır. Her kümedeki
+toplam atalet elde edilir. (Toplam ataletin ``KMeans`` sınıfının ``inertia_`` özniteliği ile de verildiğini
+anımsayınız. Anımsanacağı gibi toplam atalet her noktanın kendi ağırlık merkezine uzaklığının kareleri
+toplamıdır.) Sonra yatay eksende küme sayısı düşey eksende toplam atalet olacak biçimde bir grafik çizilir. Bu
+grafikte *eğrinin yataya geçtiği nokta* gözle tespit edilir. Eğrinin yataya geçtiği noktaya *dirsek noktası
+(elbow point)* denilmektedir. Ancak dirsek noktası yöntemi gözle tespite dayalıdır. Bu yöntemde uygulamacı
+tarafından dirsek gözle tespit edilmesi sırasında tereddütler oluşabilmektedir.
+
+Aşağıdaki örnekte daha önce kullanmış olduğumuz `points.csv` noktaları için dirsek noktası grafiği çizilmiştir.
+Bu örnekte toplam ataletler aşağıdaki gibi bir liste içlemi ile elde edilmiştir:
+
+.. code-block:: python
+
+    inertias = [KMeans(n_clusters=i, n_init=10).fit(dataset).inertia_ for i in range(1, 10)]
+
+Grafik şöyle çizdirilmiştir:
+
+.. code-block:: python
+
+    plt.title('Elbow Point Method', fontsize=12)
+    plt.plot(range(1, 10), inertias)
+    plt.show()
+
+Buradan elde edilen grafiğe bakıldığında dirsek noktasının 3 ya da 4 olabileceği anlaşılmaktadır. Örnekte
+kullanılan noktalar şöyledir:
+
+.. code-block:: text
+
+    X1,X2
+    7,8
+    2,4
+    6,4
+    3,2
+    6,5
+    5,7
+    3,3
+    1,4
+    5,4
+    7,7
+    7,6
+    2,1
+
+.. code-block:: python
+
+    import pandas as pd
+    from sklearn.cluster import KMeans
+
+    df = pd.read_csv('points.csv')
+    dataset = df.to_numpy(dtype='float32')
+
+    inertias = [KMeans(n_clusters=i, n_init=10).fit(dataset).inertia_ for i in range(1, 10)]
+
+    import matplotlib.pyplot as plt
+
+    plt.title('Elbow Point Method', fontsize=12)
+    plt.plot(range(1, 10), inertias)
+    plt.show()
+
+    # Dirsek noktasının 3 olduğu tespit edilmiştir
+
+    km = KMeans(n_clusters=3, n_init=10)
+    km.fit(dataset)
+
+    plt.title('Clustered Points', fontsize=12)
+    for i in range(3):
+        plt.scatter(dataset[km.labels_ == i, 0], dataset[km.labels_ == i, 1])
+    plt.scatter(km.cluster_centers_[:, 0], km.cluster_centers_[:, 1], 60, color='red', marker='s')
+
+Silüet Yöntemi (Silhouette Method)
+----------------------------------
+
+Silüet (silhouette) yönteminde yine 2'den başlanarak belli sayıda küme için çözümler yapılır. Sonra her çözüm
+için *silüet skoru (silhouette score)* denilen bir değer elde edilmektedir. Bu değerin en yüksek olduğu küme
+sayısından bir fazla küme sayısı en iyi küme sayısı olarak belirlenmektedir. Silüet skoru ``sklearn.metrics``
+modülündeki ``silhouette_score`` isimli fonksiyonla elde edilebilmektedir. Bu fonksiyona parametre olarak veri
+kümesi ve kümelenmiş sonuçlar (yani ``labels_`` değeri) verilir. Silüet skor işlemi 1 kümeyle
+yapılamamaktadır. Yani bu yöntemde silüet skorları kümesi 2'den başlatılarak hesaplanmalıdır.
+
+``silhouette_score`` fonksiyonun parametrik yapısı şöyledir:
+
+.. code-block:: python
+
+    sklearn.metrics.silhouette_score(X, labels, *, metric='euclidean', sample_size=None, random_state=None, **kwds)
+
+Fonksiyonun birinci parametresi kümelenecek veri kümesini ikinci parametresi ise kümeleme sonucunda elde edilmiş
+olan kümeleme bilgisini (yani ``KMeans`` nesnesinin ``labels_`` özniteliğini) almaktadır.
+
+Şimdi yukarıdaki `points.csv` veri kümesi için en iyi küme sayısını silüet skoru ile tespit edelim. Aşağıdaki
+gibi bir döngü ile küme sayıları için silüet skor değerleri elde edilebilir:
+
+.. code-block:: python
+
+    ss_list = []
+    for i in range(2, 10):
+        labels = KMeans(n_clusters=i, n_init=10).fit(dataset).labels_
+        ss = silhouette_score(dataset, labels)
+        ss_list.append(ss)
+        print(f'{i} => {ss}')
+
+Buradan elde edilen skorlar şöyledir:
+
+.. code-block:: text
+
+    2 => 0.5544097423553467
+    3 => 0.47607627511024475
+    4 => 0.4601795971393585
+    5 => 0.4254012405872345
+    6 => 0.3836685121059418
+    7 => 0.29372671246528625
+    8 => 0.21625620126724243
+    9 => 0.11089805513620377
+
+Bizim amacımız en yüksek skora ilişkin küme sayısından bir fazlasını elde etmektir. Gözle baktığımızda en
+yüksek değerin 0.5544097423553467 olduğu görülmektedir. Bu değer 2 kümeye ilişkin olan değerdir. O halde en iyi
+küme sayısı 3'tür. Bu işlemi şöyle de yapabiliriz:
+
+.. code-block:: python
+
+    optimal_cluster = np.argmax(ss_list) + 3
+
+Tabii aslında fonksiyonel tarzda bu tespit işlemi tek bir ifade ile de yapılabilirdi:
+
+.. code-block:: python
+
+    optimal_cluster = np.argmax([silhouette_score(dataset, KMeans(i, n_init=10).fit(dataset).labels_)
+            for i in range(2, 10)]) + 3
+
+Aşağıdaki örnekte daha önceden kullandığımız `points.csv` verileri için Silhouette skor değeri elde edilmiştir.
+
+Bölüm Özeti
+-----------
+
+Biz bu bölümde klasik doğal dil işlemede kullanılan *naive Bayes*, *lojistik regresyon* ve *kümeleme*
+yöntemlerini açıklayıp bunlara örnekler verdik. Amacımız klasik doğal dil işlemede kullanılan istatistiksel
+yöntemlerin neye benzediğini göstermekti. Klasik doğal dil işlemede kullanılan burada ele aldıklarımızın
+dışında daha pek çok yöntem ve alt yöntem grupları bulunmaktadır. Ancak kursumuzda bu yöntemlerin ayrıntıları
+üzerinde durmayacağız.
