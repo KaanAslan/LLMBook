@@ -42,3 +42,4 @@ documentation for details.
    tokennormalization
    digitalconversionofthedictionarytreasury
    classicnaturallanguageprocessing
+   neuralnetworksanddeepnetworks
